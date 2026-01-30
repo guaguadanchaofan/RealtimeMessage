@@ -1,7 +1,7 @@
 runtime:
   timezone: "Asia/Shanghai"
   default_poll_interval_seconds: 60
-  reload_interval_seconds: 30
+  reload_interval_seconds: 0
 
 network:
   default_timeout_ms: 10000
@@ -19,14 +19,14 @@ redis:
   key_prefix: "dingbot:"
 
 dingding:
-  webhook: "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN"
-  secret: "SECxxxx"
+  webhook: "https://oapi.dingtalk.com/robot/send?access_token=2781bf51cfedea75017e650c381b9f44e581400fbde34d20c469dd93f912c506"
+  secret: "SEC08f44ab8f5ca5e16a96593cc9389d778f4bdc4e7a6bafaa190a96c2a05c986ec"
   msg_type: "markdown"
   title: "A股关键消息"
   timeout_ms: 8000
 
 scoring:
-  push_threshold: 90
+  push_threshold: 30
   market_hours:
     enabled: true
     in_session_bonus: 5

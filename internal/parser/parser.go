@@ -92,24 +92,33 @@ func applyAuto(obj map[string]any, msg model.Message) model.Message {
 		getString(obj, "title"),
 		getString(obj, "headline"),
 		getString(obj, "subject"),
+		getString(obj, "title.text"),
+		getString(obj, "title.rendered"),
 	)
 	msg.Content = firstNonEmpty(
 		getString(obj, "content"),
 		getString(obj, "summary"),
 		getString(obj, "body"),
+		getString(obj, "brief"),
+		getString(obj, "description"),
+		getString(obj, "content.text"),
+		getString(obj, "content.rendered"),
 	)
 	msg.URL = firstNonEmpty(
 		getString(obj, "url"),
 		getString(obj, "link"),
+		getString(obj, "share_url"),
 	)
 	msg.ID = firstNonEmpty(
 		getString(obj, "id"),
 		getString(obj, "guid"),
+		getString(obj, "news_id"),
 	)
 	msg.Time = parseTime(firstNonNil(
 		getAny(obj, "time"),
 		getAny(obj, "timestamp"),
 		getAny(obj, "published_at"),
+		getAny(obj, "publish_time"),
 	))
 	return msg
 }
@@ -128,6 +137,9 @@ func autoFindList(data any) []any {
 		if list := findByPath(data, path); list != nil {
 			return list
 		}
+	}
+	if list := findLikelyList(data, 0); list != nil {
+		return list
 	}
 	if arr, ok := data.([]any); ok {
 		return arr
@@ -154,9 +166,59 @@ func findByPath(data any, path string) []any {
 	return nil
 }
 
+func findLikelyList(data any, depth int) []any {
+	if depth > 5 {
+		return nil
+	}
+	switch v := data.(type) {
+	case []any:
+		if len(v) == 0 {
+			return nil
+		}
+		if looksLikeMessageArray(v) {
+			return v
+		}
+		for _, item := range v {
+			if list := findLikelyList(item, depth+1); list != nil {
+				return list
+			}
+		}
+	case map[string]any:
+		for _, item := range v {
+			if list := findLikelyList(item, depth+1); list != nil {
+				return list
+			}
+		}
+	}
+	return nil
+}
+
+func looksLikeMessageArray(arr []any) bool {
+	for _, item := range arr {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, k := range []string{"title", "headline", "subject", "content", "summary", "brief"} {
+			if _, ok := obj[k]; ok {
+				return true
+			}
+		}
+		if content, ok := obj["content"].(map[string]any); ok {
+			if _, ok := content["text"]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func getAny(obj map[string]any, key string) any {
 	if key == "" {
 		return nil
+	}
+	if strings.Contains(key, ".") {
+		return getAnyByPath(obj, key)
 	}
 	return obj[key]
 }
@@ -175,6 +237,22 @@ func getString(obj map[string]any, key string) string {
 	default:
 		return ""
 	}
+}
+
+func getAnyByPath(obj map[string]any, path string) any {
+	parts := strings.Split(path, ".")
+	var cur any = obj
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil
+		}
+		cur = m[p]
+	}
+	return cur
 }
 
 func parseTime(val any) time.Time {

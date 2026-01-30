@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -81,6 +82,10 @@ func (w *Worker) fetchOnce(ctx context.Context) {
 
 	status, body, err := client.Do(ctx, req)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			w.logger.Info("fetch canceled", logging.Field{Key: "source", Val: w.source.Name})
+			return
+		}
 		w.logger.Error("fetch failed", logging.Field{Key: "source", Val: w.source.Name}, logging.Field{Key: "status", Val: status}, logging.Field{Key: "err", Val: err})
 		return
 	}
@@ -117,6 +122,7 @@ func (w *Worker) fetchOnce(ctx context.Context) {
 			continue
 		}
 		content := w.render(scored)
+		w.logger.Info("push payload", logging.Field{Key: "source", Val: w.source.Name}, logging.Field{Key: "len", Val: len(content)}, logging.Field{Key: "preview", Val: truncate(content, 200)})
 		if strings.ToLower(w.pusher.MsgType) == "text" {
 			err = w.pusher.SendText(content)
 		} else {
@@ -130,7 +136,29 @@ func (w *Worker) fetchOnce(ctx context.Context) {
 	}
 }
 
+func truncate(s string, max int) string {
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
+
 func (w *Worker) render(msg model.ScoredMessage) string {
+	if msg.Source == "" {
+		msg.Source = w.source.Name
+	}
+	if msg.Title == "" && msg.Content != "" {
+		msg.Title = msg.Content
+	}
+	if msg.Content == "" && msg.Title != "" {
+		msg.Content = msg.Title
+	}
+	if msg.Time.IsZero() {
+		msg.Time = time.Now()
+	}
+	if msg.Title == "" && msg.Content == "" {
+		msg.Title = "(no title)"
+	}
 	values := map[string]string{
 		"source":  msg.Source,
 		"title":   msg.Title,
@@ -143,7 +171,11 @@ func (w *Worker) render(msg model.ScoredMessage) string {
 	if w.pusher.Template == "" {
 		return fmt.Sprintf("[%s] %s\n%s\n%s", msg.Source, msg.Title, msg.Content, msg.URL)
 	}
-	return push.RenderTemplate(w.pusher.Template, values)
+	rendered := push.RenderTemplate(w.pusher.Template, values)
+	if strings.TrimSpace(rendered) == "" {
+		return fmt.Sprintf("[%s] %s\n%s\n%s", msg.Source, msg.Title, msg.Content, msg.URL)
+	}
+	return rendered
 }
 
 func clampTimeout(srcTimeout, defaultTimeout int) int {
