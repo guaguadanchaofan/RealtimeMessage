@@ -1,0 +1,93 @@
+runtime:
+  timezone: "Asia/Shanghai"
+  default_poll_interval_seconds: 60
+  reload_interval_seconds: 30
+
+network:
+  default_timeout_ms: 10000
+  retry:
+    max_attempts: 3
+    backoff_ms: 400
+    multiplier: 2.0
+    jitter_ms: 200
+    retry_on_status: [429, 500, 502, 503, 504]
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+  key_prefix: "dingbot:"
+
+dingding:
+  webhook: "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN"
+  secret: "SECxxxx"
+  msg_type: "markdown"
+  title: "A股关键消息"
+  timeout_ms: 8000
+
+scoring:
+  push_threshold: 90
+  market_hours:
+    enabled: true
+    in_session_bonus: 5
+    off_session_penalty: 10
+
+sources:
+  - name: "cls_all"
+    type: "http_json"
+    url: "https://api.98dou.cn/api/hotlist/cls/all"
+    poll_interval_seconds: 30
+    timeout_ms: 10000
+    retry:
+      max_attempts: 3
+    base_score: 50
+    parser:
+      mode: "auto"
+
+  - name: "pbc_rss"
+    type: "rss"
+    url: "（填央行RSS链接）"
+    poll_interval_seconds: 180
+    timeout_ms: 10000
+    retry:
+      max_attempts: 3
+    base_score: 80
+
+topics:
+  - name: "货币政策"
+    weight: 50
+    keywords: ["降准","降息","LPR","MLF","逆回购","公开市场","政策利率"]
+
+  - name: "监管与风险"
+    weight: 40
+    keywords: ["证监会","交易所","立案","调查","处罚","风险提示","退市","违约","暴雷"]
+
+  - name: "权重行业"
+    weight: 25
+    keywords: ["银行","券商","保险","地产","煤炭","石油","中字头"]
+
+triggers:
+  strong:
+    weight: 30
+    keywords: ["紧急","临时","重大","暂停","停牌","复牌","重组","回购","预增","预亏"]
+
+push:
+  max_push_per_minute: 2
+  template:
+    markdown: |
+      #### 【${source}】${title}
+      > 时间：${time}
+      > 评分：${score}
+      > 命中：${reasons}
+
+      ${content}
+
+      ${link}
+
+dedupe:
+  ttl_hours: 72
+  key_strategy: ["url","id","source_title","source_title_time"]
+
+logging:
+  level: "info"
+  json: false
