@@ -33,7 +33,7 @@ scoring:
     off_session_penalty: 10
 
 sources:
-  - name: "cls_all"
+  - name: "财联社"
     type: "http_json"
     url: "https://api.98dou.cn/api/hotlist/cls/all"
     poll_interval_seconds: 30
@@ -46,7 +46,7 @@ sources:
 
   - name: "pbc_rss"
     type: "rss"
-    url: "（填央行RSS链接）"
+    url: "https://www.chinanews.com.cn/scroll-news/news1.html"
     poll_interval_seconds: 180
     timeout_ms: 10000
     retry:
@@ -76,13 +76,13 @@ push:
   template:
     markdown: |
       #### 【${source}】${title}
-      > 时间：${time}
-      > 评分：${score}
-      > 命中：${reasons}
-
       ${content}
 
       ${link}
+
+      > 时间：${time}
+      > 评分：${score}
+      > 命中：${reasons}
 
 dedupe:
   ttl_hours: 72

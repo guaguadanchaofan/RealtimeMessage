@@ -129,11 +129,11 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	expanded := os.ExpandEnv(string(raw))
 	var cfg Config
-	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
 		return Config{}, err
 	}
+	cfg.ExpandEnv()
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -165,4 +165,11 @@ func (c Config) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (c *Config) ExpandEnv() {
+	c.Dingding.Webhook = os.ExpandEnv(c.Dingding.Webhook)
+	c.Dingding.Secret = os.ExpandEnv(c.Dingding.Secret)
+	c.Redis.Addr = os.ExpandEnv(c.Redis.Addr)
+	c.Redis.Password = os.ExpandEnv(c.Redis.Password)
 }
